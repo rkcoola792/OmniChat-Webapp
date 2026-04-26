@@ -2,13 +2,18 @@ import { useState, useEffect } from "react";
 import { useConversations } from "./hooks/useConversations";
 import { useUpload } from "./hooks/useUpload";
 import { useChat } from "./hooks/useChat";
+import { useAuth } from "./hooks/useAuth";
 import { Sidebar } from "./components/Sidebar";
 import { ChatHeader } from "./components/ChatHeader";
+import { AuthModal } from "./components/AuthModal";
 import { MessageList } from "./components/MessageList";
 import { ChatInput } from "./components/ChatInput";
 import { ChunkPanel } from "./components/ChunkPanel";
 
 export default function App() {
+  const { user, authModal, openLogin, openSignup, closeModal, login, register, logout } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const {
     conversations,
     activeConversationId,
@@ -85,8 +90,14 @@ export default function App() {
   }
 
   return (
+    <>
     <div className="flex h-screen bg-gray-50 font-sans">
       <Sidebar
+        collapsed={sidebarCollapsed}
+        user={user}
+        onLogin={openLogin}
+        onLogout={logout}
+        onToggleSidebar={() => setSidebarCollapsed(v => !v)}
         file={file}
         uploadedName={uploadedName}
         uploading={uploading}
@@ -101,34 +112,51 @@ export default function App() {
         onDeleteConversation={handleDeleteConversation}
       />
 
-      <main className="flex flex-1 min-w-0">
-        <div className="flex flex-col flex-1 min-w-0">
-          <ChatHeader uploadedName={uploadedName} />
-          <MessageList
-            messages={messages}
-            asking={asking}
-            askError={askError}
-            uploadedName={uploadedName}
-            bottomRef={bottomRef}
-            selectedSource={selectedSource}
-            setSelectedSource={setSelectedSource}
-          />
-          <ChatInput
-            question={question}
-            setQuestion={setQuestion}
-            asking={asking}
-            uploadedName={uploadedName}
-            textareaRef={textareaRef}
-            handleKeyDown={handleKeyDown}
-            askQuestion={askQuestion}
-            stopStreaming={stopStreaming}
-          />
-        </div>
+      <main className="flex flex-col flex-1 min-w-0">
+        <ChatHeader
+          user={user}
+          onLogin={openLogin}
+          uploadedName={uploadedName}
+        />
 
-        {selectedSource && (
-          <ChunkPanel source={selectedSource} onClose={() => setSelectedSource(null)} />
-        )}
+        <div className="flex flex-1 min-w-0 overflow-hidden">
+          <div className="flex flex-col flex-1 min-w-0">
+            <MessageList
+              messages={messages}
+              asking={asking}
+              askError={askError}
+              uploadedName={uploadedName}
+              bottomRef={bottomRef}
+              selectedSource={selectedSource}
+              setSelectedSource={setSelectedSource}
+            />
+            <ChatInput
+              question={question}
+              setQuestion={setQuestion}
+              asking={asking}
+              uploadedName={uploadedName}
+              textareaRef={textareaRef}
+              handleKeyDown={handleKeyDown}
+              askQuestion={askQuestion}
+              stopStreaming={stopStreaming}
+            />
+          </div>
+
+          {selectedSource && (
+            <ChunkPanel source={selectedSource} onClose={() => setSelectedSource(null)} />
+          )}
+        </div>
       </main>
     </div>
+
+    {authModal.open && (
+      <AuthModal
+        mode={authModal.mode}
+        onClose={closeModal}
+        onLogin={login}
+        onRegister={register}
+      />
+    )}
+    </>
   );
 }

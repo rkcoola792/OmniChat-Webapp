@@ -19,11 +19,6 @@ export function useChat({ uploadedName }) {
     const q = question.trim();
     if (!q) return;
 
-    if (!uploadedName) {
-      setAskError("Please upload a document before asking questions.");
-      return;
-    }
-
     setQuestion("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     setAskError("");
