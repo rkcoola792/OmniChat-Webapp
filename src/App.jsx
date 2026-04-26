@@ -11,7 +11,7 @@ import { ChatInput } from "./components/ChatInput";
 import { ChunkPanel } from "./components/ChunkPanel";
 
 export default function App() {
-  const { user, authModal, openLogin, openSignup, closeModal, login, register, logout } = useAuth();
+  const { user, authModal, openLogin, openSignup, closeModal, login, register, updateProfile, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const {
@@ -97,6 +97,7 @@ export default function App() {
         user={user}
         onLogin={openLogin}
         onLogout={logout}
+        onUpdateProfile={updateProfile}
         onToggleSidebar={() => setSidebarCollapsed(v => !v)}
         file={file}
         uploadedName={uploadedName}
@@ -116,6 +117,7 @@ export default function App() {
         <ChatHeader
           user={user}
           onLogin={openLogin}
+          onLogout={logout}
           uploadedName={uploadedName}
         />
 

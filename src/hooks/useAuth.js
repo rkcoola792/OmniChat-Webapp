@@ -34,6 +34,7 @@ export function useAuth() {
     const res = await fetch(`${API}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
@@ -51,6 +52,7 @@ export function useAuth() {
     const res = await fetch(`${API}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ name, email, password }),
     });
     const data = await res.json();
@@ -61,9 +63,38 @@ export function useAuth() {
       initials: getInitials(data.name || data.user?.name || name),
       token: data.token || data.access_token,
     };
+    dispatch(setUser(userData));
   }
 
-  function logout() {
+  async function updateProfile({ name, currentPassword, newPassword }) {
+    const body = {};
+    if (name) body.name = name;
+    if (currentPassword) body.currentPassword = currentPassword;
+    if (newPassword) body.newPassword = newPassword;
+
+    const res = await fetch(`${API}/auth/update-profile`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (res.status === 401) {
+      dispatch(clearUser());
+      setAuthModal({ open: true, mode: "login" });
+      throw new Error("Session expired. Please log in again.");
+    }
+    if (!res.ok) throw new Error(data.error || data.message || "Update failed");
+    const updatedName = data.user?.name || name;
+    dispatch(setUser({ ...user, name: updatedName, initials: getInitials(updatedName) }));
+  }
+
+  async function logout() {
+    try {
+      await fetch(`${API}/logout`, { method: "POST", credentials: "include" });
+    } catch {
+      // ignore — clear client state regardless
+    }
     dispatch(clearUser());
   }
 
@@ -75,6 +106,7 @@ export function useAuth() {
     closeModal,
     login,
     register,
+    updateProfile,
     logout,
   };
 }
