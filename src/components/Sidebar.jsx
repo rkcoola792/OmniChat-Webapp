@@ -57,7 +57,7 @@ function HamburgerIcon() {
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="flex-shrink-0"
+      className="shrink-0"
       aria-hidden="true"
     >
       <rect
@@ -90,7 +90,7 @@ function CollapsedSidebar({
   onHelp,
 }) {
   return (
-    <aside className="w-14 bg-white border-r border-gray-200 flex flex-col items-center shrink-0 h-screen shadow-sm pt-3 pb-3 gap-1">
+    <aside className="hidden md:flex w-14 bg-white border-r border-gray-200 flex-col items-center shrink-0 h-screen shadow-sm pt-3 pb-3 gap-1">
       {/* Expand */}
       <IconBtn onClick={onToggleSidebar} title="Open sidebar">
         <HamburgerIcon />
@@ -152,6 +152,8 @@ function CollapsedSidebar({
 /* ── Full expanded sidebar ── */
 export function Sidebar({
   collapsed,
+  mobileOpen,
+  onMobileClose,
   user,
   onLogin,
   onLogout,
@@ -206,7 +208,20 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="w-72 bg-white border-r border-gray-200 flex flex-col shrink-0 h-screen shadow-sm">
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+
+      <aside className={`
+        bg-white border-r border-gray-200 flex flex-col shrink-0 h-screen shadow-sm w-72
+        fixed inset-y-0 left-0 z-50 transition-transform duration-300
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+        md:relative md:translate-x-0 md:z-auto
+      `}>
         {/* Top bar */}
         <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-100">
           <div className="flex items-center gap-1.5">

@@ -10,7 +10,7 @@ export function Message({ role, text, timestamp, sources, onSourceClick, activeS
         </div>
       )}
 
-      <div className={`flex flex-col gap-1 ${isUser ? "items-end max-w-[75%]" : "items-start flex-1"}`}>
+      <div className={`flex flex-col gap-1 ${isUser ? "items-end max-w-[85%] sm:max-w-[75%]" : "items-start flex-1 min-w-0"}`}>
         
         {isUser ? (
           <div className="bg-indigo-600 text-white px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap">
@@ -52,7 +52,7 @@ export function Message({ role, text, timestamp, sources, onSourceClick, activeS
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
 
-                  <span className="truncate max-w-[140px]">{label}</span>
+                  <span className="truncate max-w-35">{label}</span>
 
                   {page && (
                     <span className={isActive ? "text-indigo-400" : "text-gray-400"}>

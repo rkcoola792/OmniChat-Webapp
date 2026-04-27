@@ -3,7 +3,7 @@ import { TypingIndicator } from "./TypingIndicator";
 
 export function MessageList({ messages, asking, askError, uploadedName, bottomRef, selectedSource, setSelectedSource }) {
   return (
-    <div className="flex-1 overflow-y-auto px-6 py-6">
+    <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6">
       {messages.length === 0 && !asking && (
         <div className="flex flex-col items-center justify-center h-full text-center gap-4 text-gray-400">
           <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center">

@@ -9,7 +9,7 @@ function PencilIcon() {
   );
 }
 
-export function ChatHeader({ user, onLogin, onLogout, uploadedName, chatTitle, onRenameChat }) {
+export function ChatHeader({ user, onLogin, onLogout, uploadedName, chatTitle, onRenameChat, onOpenSidebar }) {
   const [showMenu, setShowMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
@@ -57,8 +57,18 @@ export function ChatHeader({ user, onLogin, onLogout, uploadedName, chatTitle, o
   const displayTitle = chatTitle || "New Chat";
 
   return (
-    <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
+    <header className="bg-white border-b border-gray-200 px-3 sm:px-4 py-3 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-2 min-w-0">
+        {/* Mobile sidebar toggle */}
+        <button
+          onClick={onOpenSidebar}
+          className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors cursor-pointer shrink-0 mr-1"
+          aria-label="Open sidebar"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
         {editing ? (
           <div className="flex items-center gap-1.5">
             <input
@@ -83,7 +93,7 @@ export function ChatHeader({ user, onLogin, onLogout, uploadedName, chatTitle, o
           </div>
         ) : (
           <div className="flex items-center gap-1.5 min-w-0">
-            <h2 className="text-sm font-semibold text-gray-900 truncate max-w-xs">
+            <h2 className="text-sm font-semibold text-gray-900 truncate max-w-30 sm:max-w-xs">
               {displayTitle}
             </h2>
             <button
@@ -109,15 +119,16 @@ export function ChatHeader({ user, onLogin, onLogout, uploadedName, chatTitle, o
           <>
             <button
               onClick={onLogin}
-              className="px-4 py-1.5 rounded-full border border-gray-300 text-sm text-gray-700 font-medium hover:bg-gray-100 transition-colors cursor-pointer"
+              className="px-3 sm:px-4 py-1.5 rounded-full border border-gray-300 text-sm text-gray-700 font-medium hover:bg-gray-100 transition-colors cursor-pointer"
             >
               Log in
             </button>
             <button
               onClick={onLogin}
-              className="px-4 py-1.5 rounded-full bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
+              className="px-3 sm:px-4 py-1.5 rounded-full bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors cursor-pointer"
             >
-              Sign up for free
+              <span className="hidden sm:inline">Sign up for free</span>
+              <span className="sm:hidden">Sign up</span>
             </button>
           </>
         ) : (

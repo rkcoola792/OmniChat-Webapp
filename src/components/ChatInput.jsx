@@ -2,7 +2,7 @@ import { SendIcon, StopIcon } from "./icons";
 
 export function ChatInput({ question, setQuestion, asking, uploadedName, textareaRef, handleKeyDown, askQuestion, stopStreaming }) {
   return (
-    <div className="bg-white border-t border-gray-200 px-6 py-4 shrink-0">
+    <div className="bg-white border-t border-gray-200 px-3 py-3 sm:px-6 sm:py-4 shrink-0">
       <div className={`flex items-center gap-3 bg-gray-50 border rounded-2xl px-4 py-3 transition-colors ${
         !uploadedName
           ? "opacity-60 border-gray-200"
@@ -41,7 +41,7 @@ export function ChatInput({ question, setQuestion, asking, uploadedName, textare
           </button>
         )}
       </div>
-      <p className="text-xs text-gray-400 mt-2 text-center">
+      <p className="hidden sm:block text-xs text-gray-400 mt-2 text-center">
         Shift + Enter for new line · Enter to send
       </p>
     </div>

@@ -4,7 +4,10 @@ export function ChunkPanel({ source, onClose }) {
   const content = typeof source === "object" ? (source.content ?? source.text ?? source.chunk ?? null) : null;
 
   return (
-    <aside className="w-80 shrink-0 bg-white border-l border-gray-200 flex flex-col shadow-sm">
+    <aside className="
+      fixed inset-0 z-40 bg-white flex flex-col shadow-sm
+      md:relative md:inset-auto md:z-auto md:w-80 md:shrink-0 md:border-l md:border-gray-200
+    ">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-6 h-6 rounded-md bg-indigo-100 flex items-center justify-center shrink-0">

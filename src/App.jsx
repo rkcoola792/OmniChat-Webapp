@@ -13,6 +13,7 @@ import { ChunkPanel } from "./components/ChunkPanel";
 export default function App() {
   const { user, authModal, openLogin, closeModal, login, register, updateProfile, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState(null);
 
   const {
@@ -85,12 +86,14 @@ export default function App() {
   function handleNewConversation() {
     setUploadedName("");
     setQuestion("");
+    setMobileSidebarOpen(false);
     startNewConversation();
   }
 
   function handleLoadConversation(id) {
     if (id === activeConversationId) return;
     setUploadedName("");
+    setMobileSidebarOpen(false);
     setActiveConversationId(id);
   }
 
@@ -104,6 +107,8 @@ export default function App() {
       <div className="flex h-screen bg-gray-50 font-sans">
         <Sidebar
           collapsed={sidebarCollapsed}
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={() => setMobileSidebarOpen(false)}
           user={user}
           onLogin={openLogin}
           onLogout={logout}
@@ -123,7 +128,7 @@ export default function App() {
           onDeleteConversation={handleDeleteConversation}
         />
 
-        <main className="flex flex-col flex-1 min-w-0">
+        <main className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <ChatHeader
             user={user}
             onLogin={openLogin}
@@ -131,6 +136,7 @@ export default function App() {
             uploadedName={uploadedName}
             chatTitle={activeChatTitle}
             onRenameChat={(title) => updateConversationTitle(activeConversationId, title)}
+            onOpenSidebar={() => setMobileSidebarOpen(true)}
           />
 
           <div className="flex flex-1 min-w-0 overflow-hidden">
