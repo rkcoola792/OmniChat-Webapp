@@ -1,2 +1,2 @@
-export const API = "/api";
+export const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
 export const STORAGE_KEY = "rag-chat-history";

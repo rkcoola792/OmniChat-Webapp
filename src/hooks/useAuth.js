@@ -40,6 +40,7 @@ export function useAuth() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || data.error || "Login failed");
     const userData = {
+      id: data._id || data.id || data.user?._id || data.user?.id,
       name: data.name || data.user?.name || email.split("@")[0],
       email: data.email || data.user?.email || email,
       initials: getInitials(data.name || data.user?.name || email.split("@")[0]),
@@ -58,6 +59,7 @@ export function useAuth() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || data.error || "Registration failed");
     const userData = {
+      id: data._id || data.id || data.user?._id || data.user?.id,
       name: data.name || data.user?.name || name,
       email: data.email || data.user?.email || email,
       initials: getInitials(data.name || data.user?.name || name),

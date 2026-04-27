@@ -9,7 +9,6 @@ import {
   HelpIcon,
   TrashIcon,
 } from "./icons";
-import { MOCK_HISTORY } from "../data/mockHistory";
 import { HelpModal } from "./HelpModal";
 import { SettingsModal } from "./SettingsModal";
 
@@ -192,7 +191,7 @@ export function Sidebar({
     );
   }
 
-  const list = user ? MOCK_HISTORY : conversations;
+  const list = conversations;
   const filtered = search
     ? list.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()))
     : list;

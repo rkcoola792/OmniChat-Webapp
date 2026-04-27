@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useConversations } from "./hooks/useConversations";
 import { useUpload } from "./hooks/useUpload";
 import { useChat } from "./hooks/useChat";
@@ -11,17 +11,19 @@ import { ChatInput } from "./components/ChatInput";
 import { ChunkPanel } from "./components/ChunkPanel";
 
 export default function App() {
-  const { user, authModal, openLogin, openSignup, closeModal, login, register, updateProfile, logout } = useAuth();
+  const { user, authModal, openLogin, closeModal, login, register, updateProfile, logout } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [selectedSource, setSelectedSource] = useState(null);
 
   const {
     conversations,
     activeConversationId,
+    setActiveConversationId,
+    fetchChatMessages,
+    cacheMessages,
     startNewConversation,
-    loadConversation,
     deleteConversation,
-    updateConversationMessages,
-    updateConversationDocument,
+    updateConversationTitle,
   } = useConversations();
 
   const {
@@ -33,7 +35,7 @@ export default function App() {
     setUploadedName,
     handleFileChange,
     uploadFile,
-  } = useUpload({ activeConversationId, updateConversationDocument });
+  } = useUpload({ activeConversationId, updateConversationDocument: () => {} });
 
   const {
     question,
@@ -47,118 +49,127 @@ export default function App() {
     askQuestion,
     stopStreaming,
     handleKeyDown,
-  } = useChat({ uploadedName });
+  } = useChat({
+    uploadedName,
+    chatId: activeConversationId,
+    onTitleUpdate: updateConversationTitle,
+  });
 
-  const [selectedSource, setSelectedSource] = useState(null);
+  const prevAskingRef = useRef(false);
 
-  // Sync messages and document name when switching conversations
+  // Load messages whenever the active chat changes.
+  // Cancelled flag prevents a slow fetch from overwriting newer state.
   useEffect(() => {
-    const active = conversations.find(c => c.id === activeConversationId);
-    if (active) {
-      setMessages(active.messages);
-      setUploadedName(active.document || "");
-    } else {
+    if (!activeConversationId) {
       setMessages([]);
+      return;
     }
+    let cancelled = false;
+    fetchChatMessages(activeConversationId).then((msgs) => {
+      if (!cancelled) setMessages(msgs);
+    });
+    return () => { cancelled = true; };
   }, [activeConversationId]);
 
-  // Persist messages to the active conversation on every change
+  // After streaming ends, save messages to the local cache so switching
+  // back to this chat doesn't wipe them (even if the backend hasn't saved yet).
   useEffect(() => {
-    if (!activeConversationId) return;
-    updateConversationMessages(activeConversationId, messages);
-  }, [messages, activeConversationId]);
+    if (prevAskingRef.current && !asking && activeConversationId && messages.length > 0) {
+      cacheMessages(activeConversationId, messages);
+    }
+    prevAskingRef.current = asking;
+  }, [asking]);
 
   function handleNewConversation() {
-    startNewConversation(uploadedName);
-    setMessages([]);
     setUploadedName("");
     setQuestion("");
+    startNewConversation();
+  }
+
+  function handleLoadConversation(id) {
+    if (id === activeConversationId) return;
+    setUploadedName("");
+    setActiveConversationId(id);
   }
 
   function handleDeleteConversation(id, e) {
-    deleteConversation(id, e, {
-      onSwitch: (remaining) => {
-        if (remaining) {
-          setMessages(remaining.messages);
-          setUploadedName(remaining.document || "");
-        } else {
-          setMessages([]);
-          setUploadedName("");
-        }
-      },
-    });
+    setUploadedName("");
+    deleteConversation(id, e);
   }
 
   return (
     <>
-    <div className="flex h-screen bg-gray-50 font-sans">
-      <Sidebar
-        collapsed={sidebarCollapsed}
-        user={user}
-        onLogin={openLogin}
-        onLogout={logout}
-        onUpdateProfile={updateProfile}
-        onToggleSidebar={() => setSidebarCollapsed(v => !v)}
-        file={file}
-        uploadedName={uploadedName}
-        uploading={uploading}
-        uploadError={uploadError}
-        fileInputRef={fileInputRef}
-        handleFileChange={handleFileChange}
-        uploadFile={uploadFile}
-        conversations={conversations}
-        activeConversationId={activeConversationId}
-        onNewConversation={handleNewConversation}
-        onLoadConversation={loadConversation}
-        onDeleteConversation={handleDeleteConversation}
-      />
-
-      <main className="flex flex-col flex-1 min-w-0">
-        <ChatHeader
+      <div className="flex h-screen bg-gray-50 font-sans">
+        <Sidebar
+          collapsed={sidebarCollapsed}
           user={user}
           onLogin={openLogin}
           onLogout={logout}
+          onUpdateProfile={updateProfile}
+          onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+          file={file}
           uploadedName={uploadedName}
+          uploading={uploading}
+          uploadError={uploadError}
+          fileInputRef={fileInputRef}
+          handleFileChange={handleFileChange}
+          uploadFile={uploadFile}
+          conversations={conversations}
+          activeConversationId={activeConversationId}
+          onNewConversation={handleNewConversation}
+          onLoadConversation={handleLoadConversation}
+          onDeleteConversation={handleDeleteConversation}
         />
 
-        <div className="flex flex-1 min-w-0 overflow-hidden">
-          <div className="flex flex-col flex-1 min-w-0">
-            <MessageList
-              messages={messages}
-              asking={asking}
-              askError={askError}
-              uploadedName={uploadedName}
-              bottomRef={bottomRef}
-              selectedSource={selectedSource}
-              setSelectedSource={setSelectedSource}
-            />
-            <ChatInput
-              question={question}
-              setQuestion={setQuestion}
-              asking={asking}
-              uploadedName={uploadedName}
-              textareaRef={textareaRef}
-              handleKeyDown={handleKeyDown}
-              askQuestion={askQuestion}
-              stopStreaming={stopStreaming}
-            />
+        <main className="flex flex-col flex-1 min-w-0">
+          <ChatHeader
+            user={user}
+            onLogin={openLogin}
+            onLogout={logout}
+            uploadedName={uploadedName}
+          />
+
+          <div className="flex flex-1 min-w-0 overflow-hidden">
+            <div className="flex flex-col flex-1 min-w-0">
+              <MessageList
+                messages={messages}
+                asking={asking}
+                askError={askError}
+                uploadedName={uploadedName}
+                bottomRef={bottomRef}
+                selectedSource={selectedSource}
+                setSelectedSource={setSelectedSource}
+              />
+              <ChatInput
+                question={question}
+                setQuestion={setQuestion}
+                asking={asking}
+                uploadedName={uploadedName}
+                textareaRef={textareaRef}
+                handleKeyDown={handleKeyDown}
+                askQuestion={askQuestion}
+                stopStreaming={stopStreaming}
+              />
+            </div>
+
+            {selectedSource && (
+              <ChunkPanel
+                source={selectedSource}
+                onClose={() => setSelectedSource(null)}
+              />
+            )}
           </div>
+        </main>
+      </div>
 
-          {selectedSource && (
-            <ChunkPanel source={selectedSource} onClose={() => setSelectedSource(null)} />
-          )}
-        </div>
-      </main>
-    </div>
-
-    {authModal.open && (
-      <AuthModal
-        mode={authModal.mode}
-        onClose={closeModal}
-        onLogin={login}
-        onRegister={register}
-      />
-    )}
+      {authModal.open && (
+        <AuthModal
+          mode={authModal.mode}
+          onClose={closeModal}
+          onLogin={login}
+          onRegister={register}
+        />
+      )}
     </>
   );
 }

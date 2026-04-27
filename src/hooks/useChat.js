@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
+import { useSelector } from "react-redux";
 import { API } from "../constants";
 import { getNow } from "../utils/helpers";
 
-export function useChat({ uploadedName }) {
+export function useChat({ uploadedName, chatId, onTitleUpdate }) {
+  const user = useSelector((state) => state.user.info);
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [asking, setAsking] = useState(false);
@@ -23,7 +25,11 @@ export function useChat({ uploadedName }) {
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     setAskError("");
 
-    const updatedMessages = [...messages, { role: "user", text: q, timestamp: getNow() }];
+    const isFirstMessage = messages.length === 0;
+    const updatedMessages = [
+      ...messages,
+      { role: "user", text: q, timestamp: getNow() },
+    ];
     setMessages(updatedMessages);
     setAsking(true);
 
@@ -31,13 +37,18 @@ export function useChat({ uploadedName }) {
       const controller = new AbortController();
       controllerRef.current = controller;
 
+      const headers = { "Content-Type": "application/json" };
+      if (user?.token) headers["Authorization"] = `Bearer ${user.token}`;
+
       const response = await fetch(`${API}/ask-stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        credentials: "include",
         signal: controller.signal,
         body: JSON.stringify({
           question: q,
           history: updatedMessages.slice(-5),
+          chatId: chatId || undefined,
         }),
       });
 
@@ -66,12 +77,17 @@ export function useChat({ uploadedName }) {
 
         if (!aiMessageAdded) {
           aiMessageAdded = true;
-          setMessages(prev => [
+          setMessages((prev) => [
             ...prev,
-            { role: "ai", text: accumulatedText, timestamp: getNow(), sources: parsedSources },
+            {
+              role: "ai",
+              text: accumulatedText,
+              timestamp: getNow(),
+              sources: parsedSources,
+            },
           ]);
         } else {
-          setMessages(prev => {
+          setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
               ...updated[updated.length - 1],
@@ -82,11 +98,16 @@ export function useChat({ uploadedName }) {
           });
         }
       }
+
+      // Auto-title the conversation from the first question
+      if (isFirstMessage && chatId && onTitleUpdate) {
+        onTitleUpdate(chatId, q.slice(0, 60) + (q.length > 60 ? "..." : ""));
+      }
     } catch (err) {
       if (err.name === "AbortError") return;
       const errMsg = "Something went wrong. Please try again.";
       setAskError(errMsg);
-      setMessages(prev => [
+      setMessages((prev) => [
         ...prev,
         { role: "ai", text: `Error: ${errMsg}`, timestamp: getNow() },
       ]);

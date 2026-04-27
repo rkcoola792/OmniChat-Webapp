@@ -1,78 +1,163 @@
-import { useState } from "react";
-import { loadHistory, saveHistory } from "../utils/storage";
-import { createConversation } from "../utils/helpers";
+import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import { API } from "../constants";
 
 export function useConversations() {
-  const [conversations, setConversations] = useState(() => loadHistory());
-  const [activeConversationId, setActiveConversationId] = useState(() => {
-    const loaded = loadHistory();
-    return loaded.length > 0 ? loaded[0].id : null;
-  });
+  const user = useSelector((state) => state.user.info);
+  const [conversations, setConversations] = useState([]);
+  const [activeConversationId, setActiveConversationId] = useState(null);
+  // Local cache: chatId → messages[], so switching back doesn't wipe streamed messages
+  const [messagesCache, setMessagesCache] = useState({});
 
-  function startNewConversation(currentDocument) {
-    const newConv = createConversation();
-    newConv.document = currentDocument;
-    setConversations(prev => {
-      const updated = [newConv, ...prev];
-      saveHistory(updated);
-      return updated;
-    });
-    setActiveConversationId(newConv.id);
-    return newConv;
+  function authHeaders() {
+    const h = { "Content-Type": "application/json" };
+    if (user?.token) h["Authorization"] = `Bearer ${user.token}`;
+    return h;
   }
 
-  function loadConversation(id) {
-    setActiveConversationId(id);
-  }
+  useEffect(() => {
+    if (!user) {
+      setConversations([]);
+      setActiveConversationId(null);
+      setMessagesCache({});
+      return;
+    }
+    fetchChats();
+  }, [user]);
 
-  function deleteConversation(id, e, { onSwitch } = {}) {
-    e.stopPropagation();
-    setConversations(prev => {
-      const updated = prev.filter(c => c.id !== id);
-      saveHistory(updated);
-      if (activeConversationId === id) {
-        const remaining = updated[0];
-        setActiveConversationId(remaining?.id || null);
-        onSwitch?.(remaining);
+  async function fetchChats() {
+    try {
+      const res = await fetch(`${API}/chat`, {
+        credentials: "include",
+        headers: authHeaders(),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.length === 0) {
+        const created = await createChat();
+        if (created) {
+          setConversations([created]);
+          setActiveConversationId(created.id);
+        }
+        return;
       }
-      return updated;
-    });
+
+      const normalized = data.map((c) => ({ ...c, id: c._id }));
+      setConversations(normalized);
+      setActiveConversationId(normalized[0].id);
+    } catch (e) {
+      console.error("Failed to fetch chats", e);
+    }
   }
 
-  function updateConversationMessages(id, newMessages) {
-    setConversations(prev => {
-      const updated = prev.map(c =>
-        c.id === id
-          ? {
-              ...c,
-              messages: newMessages,
-              updatedAt: new Date().toISOString(),
-              title: c.messages.length > 0 && c.title === "New conversation"
-                ? c.messages[0].text.slice(0, 40) + (c.messages[0].text.length > 40 ? "..." : "")
-                : c.title,
-            }
-          : c
-      );
-      saveHistory(updated);
-      return updated;
-    });
+  async function createChat() {
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        credentials: "include",
+        headers: authHeaders(),
+      });
+      if (!res.ok) {
+        console.error("Failed to create chat:", res.status);
+        return null;
+      }
+      const data = await res.json();
+      return {
+        _id: data.chatId,
+        id: data.chatId,
+        title: data.title,
+        createdAt: data.createdAt,
+        updatedAt: data.createdAt,
+      };
+    } catch (e) {
+      console.error("Failed to create chat", e);
+      return null;
+    }
   }
 
-  function updateConversationDocument(id, document) {
-    setConversations(prev => {
-      const updated = prev.map(c => c.id === id ? { ...c, document } : c);
-      saveHistory(updated);
-      return updated;
+  // Returns cached messages if available, otherwise fetches from API and caches result
+  async function fetchChatMessages(id) {
+    if (messagesCache[id]) return messagesCache[id];
+    try {
+      const res = await fetch(`${API}/chat/${id}`, {
+        credentials: "include",
+        headers: authHeaders(),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const messages = (data.messages || []).map((m) => ({
+        role: m.role === "assistant" ? "ai" : "user",
+        text: m.content,
+        sources: m.sources || [],
+        timestamp: m.createdAt || new Date().toISOString(),
+      }));
+      if (messages.length > 0) {
+        setMessagesCache((prev) => ({ ...prev, [id]: messages }));
+      }
+      return messages;
+    } catch (e) {
+      console.error("Failed to fetch chat messages", e);
+      return [];
+    }
+  }
+
+  // Called from App.jsx after streaming ends to keep the cache in sync
+  function cacheMessages(id, messages) {
+    if (!id || messages.length === 0) return;
+    setMessagesCache((prev) => ({ ...prev, [id]: messages }));
+  }
+
+  async function startNewConversation() {
+    if (!user) return;
+    const chat = await createChat();
+    if (!chat) return;
+    setConversations((prev) => [chat, ...prev]);
+    setActiveConversationId(chat.id);
+  }
+
+  async function deleteConversation(id, e) {
+    e.stopPropagation();
+    try {
+      await fetch(`${API}/chat/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: authHeaders(),
+      });
+    } catch (err) {
+      console.error("Failed to delete chat", err);
+    }
+
+    const isActive = activeConversationId === id;
+    const remaining = conversations.filter((c) => c.id !== id);
+    setConversations(remaining);
+    setMessagesCache((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
     });
+
+    if (isActive) {
+      setActiveConversationId(remaining[0]?.id || null);
+    }
+  }
+
+  function updateConversationTitle(id, title) {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, title, updatedAt: new Date().toISOString() } : c
+      )
+    );
   }
 
   return {
     conversations,
     activeConversationId,
+    setActiveConversationId,
+    fetchChatMessages,
+    cacheMessages,
     startNewConversation,
-    loadConversation,
     deleteConversation,
-    updateConversationMessages,
-    updateConversationDocument,
+    updateConversationTitle,
   };
 }
