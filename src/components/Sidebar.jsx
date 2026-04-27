@@ -99,12 +99,12 @@ function CollapsedSidebar({
       <div className="w-8 border-t border-gray-100 my-1" />
 
       {/* New chat */}
-      <IconBtn onClick={onNewConversation} title="New chat">
+      <IconBtn onClick={onToggleSidebar} title="New chat">
         <EditIcon />
       </IconBtn>
 
       {/* Search */}
-      <IconBtn title="Search chats">
+      <IconBtn onClick={onToggleSidebar} title="Search chats">
         <SearchIcon />
       </IconBtn>
 
@@ -401,13 +401,15 @@ export function Sidebar({
 
         {/* Bottom */}
         <div className="border-t border-gray-100 px-3 py-2 space-y-0.5">
-          <button
-            onClick={() => user && setShowSettings(true)}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
-          >
-            <SettingsIcon />
-            Settings
-          </button>
+          {user && (
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
+            >
+              <SettingsIcon />
+              Settings
+            </button>
+          )}
           <button
             onClick={() => setShowHelp(true)}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors cursor-pointer"
