@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useSelector } from "react-redux";
+import axios from "axios";
 import { API } from "../constants";
 import { getNow } from "../utils/helpers";
 
@@ -33,79 +34,70 @@ export function useChat({ uploadedName, chatId, onTitleUpdate }) {
     setMessages(updatedMessages);
     setAsking(true);
 
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
+    const headers = { "Content-Type": "application/json" };
+    if (user?.token) headers["Authorization"] = `Bearer ${user.token}`;
+
+    let fullResponse = "";
+    let aiMessageAdded = false;
+
     try {
-      const controller = new AbortController();
-      controllerRef.current = controller;
-
-      const headers = { "Content-Type": "application/json" };
-      if (user?.token) headers["Authorization"] = `Bearer ${user.token}`;
-
-      // Must use fetch (not axios) — axios doesn't support ReadableStream in browsers
-      const response = await fetch(`${API}/ask-stream`, {
-        method: "POST",
-        headers,
-        credentials: "include",
-        signal: controller.signal,
-        body: JSON.stringify({
+      // Use axios with responseType:'text' + onDownloadProgress.
+      // XHR's responseText accumulates chunk-by-chunk even behind Nginx/Render proxies,
+      // unlike fetch ReadableStream which stalls when the proxy buffers the whole body.
+      const response = await axios.post(
+        `${API}/ask-stream`,
+        {
           question: q,
           history: updatedMessages.slice(-5),
           chatId: chatId || undefined,
-        }),
-      });
+        },
+        {
+          withCredentials: true,
+          headers,
+          signal: controller.signal,
+          responseType: "text",
+          onDownloadProgress: (progressEvent) => {
+            const text = progressEvent.event?.target?.responseText ?? "";
+            if (!text || text === fullResponse) return;
+            fullResponse = text;
 
-      if (!response.ok) {
-        let serverMsg = "";
-        try { serverMsg = await response.text(); } catch { /* ignore */ }
-        throw new Error(serverMsg || `Server error ${response.status}`);
-      }
+            // Strip sources delimiter for live display — JSON may arrive incomplete
+            const displayText = text.includes("__SOURCES__")
+              ? text.split("__SOURCES__")[0]
+              : text;
 
-      if (!response.body) {
-        throw new Error("Streaming not supported by server");
-      }
-
-      const reader = response.body.getReader();
-      // { stream: true } buffers incomplete multi-byte UTF-8 sequences across chunks
-      const decoder = new TextDecoder("utf-8");
-      let fullResponse = "";
-      let aiMessageAdded = false;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        fullResponse += decoder.decode(value, { stream: true });
-
-        // Strip sources delimiter for live display — JSON may be incomplete mid-stream
-        const displayText = fullResponse.includes("__SOURCES__")
-          ? fullResponse.split("__SOURCES__")[0]
-          : fullResponse;
-
-        if (!aiMessageAdded) {
-          aiMessageAdded = true;
-          setMessages((prev) => [
-            ...prev,
-            { role: "ai", text: displayText, timestamp: getNow(), sources: [] },
-          ]);
-        } else {
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = {
-              ...updated[updated.length - 1],
-              text: displayText,
-            };
-            return updated;
-          });
+            if (!aiMessageAdded && displayText) {
+              aiMessageAdded = true;
+              setMessages((prev) => [
+                ...prev,
+                { role: "ai", text: displayText, timestamp: getNow(), sources: [] },
+              ]);
+            } else if (displayText) {
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  ...updated[updated.length - 1],
+                  text: displayText,
+                };
+                return updated;
+              });
+            }
+          },
         }
-      }
+      );
 
-      // Flush any bytes held by the decoder for incomplete multi-byte chars
-      fullResponse += decoder.decode();
+      // Fallback: if onDownloadProgress never fired (some envs suppress XHR progress),
+      // use the complete response body that axios gives us after the request finishes.
+      const completeText = fullResponse || response.data || "";
 
-      // Parse sources now that the full response is available
-      let finalText = fullResponse;
+      // Parse sources from the complete response
+      let finalText = completeText;
       let parsedSources = [];
-      if (fullResponse.includes("__SOURCES__")) {
-        const [textPart, sourcesPart] = fullResponse.split("__SOURCES__");
+      if (completeText.includes("__SOURCES__")) {
+        const [textPart, sourcesPart] = completeText.split("__SOURCES__");
         finalText = textPart;
         try {
           parsedSources = JSON.parse(sourcesPart);
@@ -114,24 +106,32 @@ export function useChat({ uploadedName, chatId, onTitleUpdate }) {
         }
       }
 
-      // Final update with correct text + sources
-      setMessages((prev) => {
-        if (prev.length === 0) return prev;
-        const updated = [...prev];
-        updated[updated.length - 1] = {
-          ...updated[updated.length - 1],
-          text: finalText,
-          sources: parsedSources,
-        };
-        return updated;
-      });
+      if (aiMessageAdded) {
+        // Update last AI message with correct final text + sources
+        setMessages((prev) => {
+          if (prev.length === 0) return prev;
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            text: finalText,
+            sources: parsedSources,
+          };
+          return updated;
+        });
+      } else if (finalText) {
+        // onDownloadProgress never fired — add AI message now from complete response
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", text: finalText, timestamp: getNow(), sources: parsedSources },
+        ]);
+      }
 
       if (isFirstMessage && chatId && onTitleUpdate) {
         onTitleUpdate(chatId, q.slice(0, 60) + (q.length > 60 ? "..." : ""));
       }
     } catch (err) {
-      if (err.name === "AbortError") return;
-      const errMsg = err.message || "Something went wrong. Please try again.";
+      if (axios.isCancel(err) || err.name === "AbortError" || err.code === "ERR_CANCELED") return;
+      const errMsg = err.response?.data || err.message || "Something went wrong. Please try again.";
       setAskError(errMsg);
       setMessages((prev) => [
         ...prev,

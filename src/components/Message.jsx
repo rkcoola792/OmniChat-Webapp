@@ -42,10 +42,10 @@ export function Message({ role, text, timestamp, sources, onSourceClick, activeS
                 <button
                   key={i}
                   onClick={() => onSourceClick(src)}
-                  className={`inline-flex items-center gap-1 border text-[11px] font-medium rounded-full px-2.5 py-0.5 transition-colors focus:outline-none ${
+                  className={`cursor-pointer inline-flex items-center gap-1 border text-[11px] font-medium rounded-full px-2.5 py-0.5 transition-colors focus:outline-none ${
                     isActive
-                      ? "bg-gray-900 border-gray-900 text-white"
-                      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                      ? "bg-indigo-100 border-indigo-300 text-indigo-700"
+                      : "bg-white border-gray-300 text-gray-600 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600"
                   }`}
                 >
                   <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -55,7 +55,7 @@ export function Message({ role, text, timestamp, sources, onSourceClick, activeS
                   <span className="truncate max-w-[140px]">{label}</span>
 
                   {page && (
-                    <span className={isActive ? "text-gray-300" : "text-gray-500"}>
+                    <span className={isActive ? "text-indigo-400" : "text-gray-400"}>
                       {page}
                     </span>
                   )}
