@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
+import axios from "axios";
 import { API } from "../constants";
 
 export function useConversations() {
@@ -9,10 +10,10 @@ export function useConversations() {
   // Local cache: chatId → messages[], so switching back doesn't wipe streamed messages
   const [messagesCache, setMessagesCache] = useState({});
 
-  function authHeaders() {
-    const h = { "Content-Type": "application/json" };
-    if (user?.token) h["Authorization"] = `Bearer ${user.token}`;
-    return h;
+  function axiosConfig() {
+    const config = { withCredentials: true };
+    if (user?.token) config.headers = { Authorization: `Bearer ${user.token}` };
+    return config;
   }
 
   useEffect(() => {
@@ -27,12 +28,7 @@ export function useConversations() {
 
   async function fetchChats() {
     try {
-      const res = await fetch(`${API}/chat`, {
-        credentials: "include",
-        headers: authHeaders(),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const { data } = await axios.get(`${API}/chat`, axiosConfig());
 
       if (data.length === 0) {
         const created = await createChat();
@@ -53,16 +49,7 @@ export function useConversations() {
 
   async function createChat() {
     try {
-      const res = await fetch(`${API}/chat`, {
-        method: "POST",
-        credentials: "include",
-        headers: authHeaders(),
-      });
-      if (!res.ok) {
-        console.error("Failed to create chat:", res.status);
-        return null;
-      }
-      const data = await res.json();
+      const { data } = await axios.post(`${API}/chat`, {}, axiosConfig());
       return {
         _id: data.chatId,
         id: data.chatId,
@@ -80,12 +67,7 @@ export function useConversations() {
   async function fetchChatMessages(id) {
     if (messagesCache[id]) return messagesCache[id];
     try {
-      const res = await fetch(`${API}/chat/${id}`, {
-        credentials: "include",
-        headers: authHeaders(),
-      });
-      if (!res.ok) return [];
-      const data = await res.json();
+      const { data } = await axios.get(`${API}/chat/${id}`, axiosConfig());
       const messages = (data.messages || []).map((m) => ({
         role: m.role === "assistant" ? "ai" : "user",
         text: m.content,
@@ -119,11 +101,7 @@ export function useConversations() {
   async function deleteConversation(id, e) {
     e.stopPropagation();
     try {
-      await fetch(`${API}/chat/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-        headers: authHeaders(),
-      });
+      await axios.delete(`${API}/chat/${id}`, axiosConfig());
     } catch (err) {
       console.error("Failed to delete chat", err);
     }

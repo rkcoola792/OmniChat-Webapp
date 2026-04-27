@@ -40,6 +40,7 @@ export function useChat({ uploadedName, chatId, onTitleUpdate }) {
       const headers = { "Content-Type": "application/json" };
       if (user?.token) headers["Authorization"] = `Bearer ${user.token}`;
 
+      // Must use fetch (not axios) — axios doesn't support ReadableStream in browsers
       const response = await fetch(`${API}/ask-stream`, {
         method: "POST",
         headers,
@@ -52,60 +53,85 @@ export function useChat({ uploadedName, chatId, onTitleUpdate }) {
         }),
       });
 
+      if (!response.ok) {
+        let serverMsg = "";
+        try { serverMsg = await response.text(); } catch { /* ignore */ }
+        throw new Error(serverMsg || `Server error ${response.status}`);
+      }
+
+      if (!response.body) {
+        throw new Error("Streaming not supported by server");
+      }
+
       const reader = response.body.getReader();
+      // { stream: true } buffers incomplete multi-byte UTF-8 sequences across chunks
       const decoder = new TextDecoder("utf-8");
-      let accumulatedText = "";
+      let fullResponse = "";
       let aiMessageAdded = false;
-      let parsedSources = [];
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        accumulatedText += chunk;
+        fullResponse += decoder.decode(value, { stream: true });
 
-        if (accumulatedText.includes("__SOURCES__")) {
-          const [textPart, sourcesPart] = accumulatedText.split("__SOURCES__");
-          accumulatedText = textPart;
-          try {
-            parsedSources = JSON.parse(sourcesPart);
-          } catch {
-            console.error("Failed to parse sources");
-          }
-        }
+        // Strip sources delimiter for live display — JSON may be incomplete mid-stream
+        const displayText = fullResponse.includes("__SOURCES__")
+          ? fullResponse.split("__SOURCES__")[0]
+          : fullResponse;
 
         if (!aiMessageAdded) {
           aiMessageAdded = true;
           setMessages((prev) => [
             ...prev,
-            {
-              role: "ai",
-              text: accumulatedText,
-              timestamp: getNow(),
-              sources: parsedSources,
-            },
+            { role: "ai", text: displayText, timestamp: getNow(), sources: [] },
           ]);
         } else {
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
               ...updated[updated.length - 1],
-              text: accumulatedText,
-              sources: parsedSources,
+              text: displayText,
             };
             return updated;
           });
         }
       }
 
-      // Auto-title the conversation from the first question
+      // Flush any bytes held by the decoder for incomplete multi-byte chars
+      fullResponse += decoder.decode();
+
+      // Parse sources now that the full response is available
+      let finalText = fullResponse;
+      let parsedSources = [];
+      if (fullResponse.includes("__SOURCES__")) {
+        const [textPart, sourcesPart] = fullResponse.split("__SOURCES__");
+        finalText = textPart;
+        try {
+          parsedSources = JSON.parse(sourcesPart);
+        } catch {
+          console.error("Failed to parse sources JSON");
+        }
+      }
+
+      // Final update with correct text + sources
+      setMessages((prev) => {
+        if (prev.length === 0) return prev;
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          ...updated[updated.length - 1],
+          text: finalText,
+          sources: parsedSources,
+        };
+        return updated;
+      });
+
       if (isFirstMessage && chatId && onTitleUpdate) {
         onTitleUpdate(chatId, q.slice(0, 60) + (q.length > 60 ? "..." : ""));
       }
     } catch (err) {
       if (err.name === "AbortError") return;
-      const errMsg = "Something went wrong. Please try again.";
+      const errMsg = err.message || "Something went wrong. Please try again.";
       setAskError(errMsg);
       setMessages((prev) => [
         ...prev,

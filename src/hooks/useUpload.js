@@ -31,6 +31,7 @@ export function useUpload({ activeConversationId, updateConversationDocument }) 
       const formData = new FormData();
       formData.append("file", file);
       await axios.post(`${API}/upload`, formData, {
+        withCredentials: true,
         headers: { "Content-Type": "multipart/form-data" },
       });
       setUploadedName(file.name);
