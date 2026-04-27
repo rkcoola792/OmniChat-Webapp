@@ -57,6 +57,8 @@ export default function App() {
 
   const prevAskingRef = useRef(false);
 
+  const activeChatTitle = conversations.find((c) => c.id === activeConversationId)?.title || "";
+
   // Load messages whenever the active chat changes.
   // Cancelled flag prevents a slow fetch from overwriting newer state.
   useEffect(() => {
@@ -127,6 +129,8 @@ export default function App() {
             onLogin={openLogin}
             onLogout={logout}
             uploadedName={uploadedName}
+            chatTitle={activeChatTitle}
+            onRenameChat={(title) => updateConversationTitle(activeConversationId, title)}
           />
 
           <div className="flex flex-1 min-w-0 overflow-hidden">

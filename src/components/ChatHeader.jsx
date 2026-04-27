@@ -1,8 +1,20 @@
 import { useState, useRef, useEffect } from "react";
 
-export function ChatHeader({ user, onLogin, onLogout, uploadedName }) {
+function PencilIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+        d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110.414 16H8v-2.414a2 2 0 01.586-1.414z" />
+    </svg>
+  );
+}
+
+export function ChatHeader({ user, onLogin, onLogout, uploadedName, chatTitle, onRenameChat }) {
   const [showMenu, setShowMenu] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
   const menuRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -14,15 +26,75 @@ export function ChatHeader({ user, onLogin, onLogout, uploadedName }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (editing) {
+      setEditValue(chatTitle || "New Chat");
+      setTimeout(() => inputRef.current?.select(), 0);
+    }
+  }, [editing]);
+
+  function startEdit() {
+    setEditing(true);
+  }
+
+  function confirmEdit() {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== chatTitle && onRenameChat) {
+      onRenameChat(trimmed);
+    }
+    setEditing(false);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === "Enter") confirmEdit();
+    if (e.key === "Escape") cancelEdit();
+  }
+
+  const displayTitle = chatTitle || "New Chat";
+
   return (
     <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shrink-0">
-      <div>
-        <h2 className="text-sm font-semibold text-gray-900">
-          {uploadedName ? `Chatting about: ${uploadedName}` : "OmniChat"}
-        </h2>
-        <p className="text-xs text-gray-400">
-          {uploadedName ? "Ask anything about your document" : "Upload a document or ask anything"}
-        </p>
+      <div className="flex items-center gap-2 min-w-0">
+        {editing ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              ref={inputRef}
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="text-sm font-semibold text-gray-900 border border-indigo-400 rounded-lg px-2 py-0.5 outline-none focus:ring-2 focus:ring-indigo-300 w-64 max-w-xs"
+            />
+            <button
+              onClick={confirmEdit}
+              className="text-xs px-2 py-1 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors cursor-pointer"
+            >
+              Save
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="text-xs px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h2 className="text-sm font-semibold text-gray-900 truncate max-w-xs">
+              {displayTitle}
+            </h2>
+            <button
+              onClick={startEdit}
+              title="Rename chat"
+              className="text-gray-400 hover:text-indigo-600 transition-colors cursor-pointer shrink-0"
+            >
+              <PencilIcon />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
