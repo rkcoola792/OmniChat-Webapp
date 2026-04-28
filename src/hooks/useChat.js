@@ -51,7 +51,6 @@ export function useChat({ uploadedName, chatId, onTitleUpdate }) {
         `${API}/ask-stream`,
         {
           question: q,
-          history: updatedMessages.slice(-5),
           chatId: chatId || undefined,
         },
         {
